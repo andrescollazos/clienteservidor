@@ -1,8 +1,14 @@
-ARQUITECTURA CLIENTE SERVIDOR
+# ARQUITECTURA CLIENTE / SERVIDOR
 
-Retos:
+### Ingeniería de Sistemas y Computación - UTP
 
-- Chat
-- Trabajo con Hilos
-- Reproductor de Musica
-- Concurrencia
+## Dependencias:
+* Python
+* C++
+
+### Retos:
+
+1. Chat
+2. Trabajo con Hilos
+3. Reproductor de Musica
+4. Redes Peer-to-Peer (P2P) 
