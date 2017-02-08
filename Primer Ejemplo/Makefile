@@ -1,4 +1,4 @@
-CC	= g++ -std=c++11 -Wall -L/home/utp/zmq/lib -I/home/utp/zmq/include
+CC	= g++ -std=c++11 -Wall -L/usr/local/lib -I/usr/local/include
 LDFLAGS = -lpthread -lzmqpp -lzmq
 
 all: server client
