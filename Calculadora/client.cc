@@ -65,7 +65,14 @@ int main() {
 
 	int result;
 	answer >> result;
-	cout << "Resultado: " << result << endl;
+	if(opcion == 6) {
+			if (result == 1)
+				cout << "Resultado: Si es primo." << endl;
+			else
+				cout << "Resultado: No es primo." << endl;
+	}
+	else
+		cout << "Resultado: " << result << endl;
 
 
 	//int i;

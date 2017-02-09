@@ -63,7 +63,7 @@ int main() {
 		}
 
 		// Procesando el mensaje
-		cout << "[SERVER DICE] : Received " << arg1 << " " << operation << " "<< arg2 << " = " << result << endl;
+		cout << "[SERVER DICE] : Received " << arg1 << " " << operation << " "<< arg2 << " => " << result << endl;
 
 		message response;
 		response << result;
