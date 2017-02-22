@@ -1,2 +1,7 @@
 client
 server
+*.png
+*.jpg
+*.mp3
+*.mp4
+*.iso
