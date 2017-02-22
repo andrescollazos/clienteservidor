@@ -55,7 +55,7 @@ int main() {
 	// filename: nombre del archivo.
 	message m;
 	string fileName, op;
-	
+
 	while (true) {
 		s.receive(m);
 		m >> op >> fileName;
@@ -84,6 +84,21 @@ int main() {
 			string upName("up-" + fileName);
 			messageToFile(file, upName);
 			cout << "[SERVER]: Subida Realizada" << endl;
+			s.send("correctamente"); // Se subio el archivo correctamente
+		}
+		else if (op == "rm") {
+			cout << "[SERVER]: Solicitud de Borrado" << endl;
+			string remov = "up-" + fileName;
+			// La funcion remove() recibe const char, no string
+			const char * rem = remov.c_str(); // Conversion string -> const char
+			if (remove(rem)!= 0) {
+				cout << "[SERVER]: Borrado Incorrecto" << endl;
+				s.send("Incorrecto");
+			}
+			else {
+				cout << "[SERVER]: Borrado Correctamente" << endl;
+				s.send("Correctamente");
+			}
 		}
 	}
 	cout << "Finished\n";

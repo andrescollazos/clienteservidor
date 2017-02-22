@@ -92,8 +92,20 @@ int main(int argc, char** argv) {
 			fileToMesage(fileName, file);
 			cout << "[SERVER]: Subiendo archivo ..." << endl;
 			s.send(file);
-			cout << "[SERVER]: Archivo subido ..." << endl;
+
+			s.receive(response);
+			response >> ack;
+			cout << "[SERVER]: Archivo subido: " << ack << endl;
 		}
+	}
+	else if ((string)argv[2] == "rm") {
+		cout << "[SERVER]: Procediendo a eliminar archivo ..." << endl;
+		message response;
+		s.receive(response);
+		string result;
+		response >> result;
+
+		cout << "[SERVER]: Proceso completado: " << result << " ..." << endl;
 	}
 
 	return 0;
