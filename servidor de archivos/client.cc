@@ -97,17 +97,30 @@ int main(int argc, char** argv) {
 				m << "down" << fileName;
 				s.send(m);
 
-				message file;
-				cout << "[SERVER]: Recibiendo Archivo ..." << endl;
-				s.receive(file);
-				cout << "[SERVER]: Archivo recibido ..." << endl;
+				message approved;
+				string app;
+				s.receive(approved);
+				approved >> app;
 
-				// File contiene los bytes que seran escritos
-				string downloadName("down-" + fileName); // Cambiar de nombre
-				cout << "[SERVER]: Sincronizando archivo ..." << endl;
-				messageToFile(file, downloadName);
-				cout << "[SERVER]: Operacion terminada ..." << endl;
+				if (app == "ok") {
+					s.send("ok"); // Listo para recibir archivo..
+					message file;
+					cout << "[SERVER]: Recibiendo Archivo ..." << endl;
+					s.receive(file);
+					cout << "[SERVER]: Archivo recibido ..." << endl;
 
+					// File contiene los bytes que seran escritos
+					string downloadName("down-" + fileName); // Cambiar de nombre
+					cout << "[SERVER]: Sincronizando archivo ..." << endl;
+					messageToFile(file, downloadName);
+					cout << "[SERVER]: Operacion terminada ..." << endl;
+				}
+				else if (app == "bad"){
+					cout << "[SERVER]: No se encuentra el archivo especificado." << endl ;
+				}
+				else {
+					cout << "[SERVER]: Ocurrio un error!" << endl;
+				}
 			}
 			else if (opcion == 1) {
 				cout << "\n\t SUBIR ARCHIVOS" << endl;
@@ -152,7 +165,14 @@ int main(int argc, char** argv) {
 			else if (opcion == 4) {
 				cout << "\n\t LISTAR ARCHIVOS" << endl;
 				m << "list" << "";
-				//s.send(m);
+				s.send(m);
+
+				cout << "[SERVER]: Esperando listado de archivos ..." << endl;
+				message response;
+				s.receive(response);
+				string result;
+				response >> result;
+				cout << "Lista:" << endl << result;
 			}
 			else if (opcion == 5) {
 				cout << "TERMINANDO SESIÓN ..." << endl;

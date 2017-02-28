@@ -82,7 +82,7 @@ int main() {
 		useri.password_ = password;
 	}
 	ofstream of_user;
-	of_user.open(archive_name, ios::out | ios::app | ios::binary);
+	of_user.open(archive_name, ios::out | ios::binary);
 	if (!of_user.is_open()) {
 		cout << "[SERVER]: Error al abrir el archivo!" << endl;
 		return -1;
@@ -98,10 +98,23 @@ int main() {
 		// Descargar archivo
 		if (op == "down") {
 			cout << "[SERVER]: Solicitud de Descarga: " << fileName << endl;
-			message response;
-			fileToMesage(fileName, response);
-			s.send(response);
-			cout << "[SERVER]: Descarga Realizada" << endl;
+			// Comprar que existe el archivo y que es del usuario:
+			ifstream proof(useri.userName_ + "-" + fileName, ios::binary);
+			if (proof.good()) {
+				cout << "Archivo si existe!" << endl;
+				proof.close();
+				message response;
+				fileToMesage(useri.userName_ + "-" + fileName, response);
+				cout << "[SERVER]: Enviando archivo ..." << endl;
+				s.send("ok"); // Informa que empieza la descarga
+				s.receive(m);
+				s.send(response);
+				cout << "[SERVER]: Descarga Realizada" << endl;
+			}
+			else {
+				cout << "[SERVER]: El archivo solicitado NO se encuentra" << endl;
+				s.send("bad"); // Informa que la descarga no sera realizada
+			}
 		}
 		// Subir archivo
 		else if (op == "up") {
@@ -116,14 +129,14 @@ int main() {
 
 			string upName(useri.userName_ + "-" + fileName);
 			messageToFile(file, upName);
-			useri.archives_.push_back(upName);
+			useri.archives_.push_back(fileName);
 			useri.write(of_user);
 			cout << "[SERVER]: Subida Realizada" << endl;
 			s.send("correctamente"); // Se subio el archivo correctamente
 		}
 		else if (op == "rm") {
 			cout << "[SERVER]: Solicitud de Borrado" << endl;
-			string remov = "up-" + fileName;
+			string remov = useri.userName_ + "-" + fileName;
 			// La funcion remove() recibe const char, no string
 			const char * rem = remov.c_str(); // Conversion string -> const char
 			if (remove(rem)!= 0) {
@@ -134,6 +147,15 @@ int main() {
 				cout << "[SERVER]: Borrado Correctamente" << endl;
 				s.send("Correctamente");
 			}
+		}
+		else if (op == "list") {
+			cout << "[SERVER]: Solicitud de Listado" << endl;
+			string list_ = "";
+			for (int i = 0; i < (int)useri.archives_.size(); i++) {
+				list_ += "\t* " + useri.archives_[i] + "\n";
+				cout << "Iter" << i << ": string: " << list_;
+			}
+			s.send(list_);
 		}
 		else if (op == "finish") {
 			cout << "[SERVER]: Terminar!" << endl;
