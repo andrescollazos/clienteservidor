@@ -56,22 +56,22 @@ int main(int argc, char** argv) {
 	context ctx;
 	socket s(ctx, socket_type::req);
 	s.connect("tcp://localhost:5555");
-	bool finish = false;
 	string aut;
 	string userName(argv[1]);
 	string password(argv[2]);
 
-	while (not(finish)) {
-		cout << "Iniciando autenticacion" << endl;
-		message auth;
-		auth << userName << password;
-		s.send(auth);
+	//while (not(finish)) {
+	cout << "Iniciando autenticacion" << endl;
+	message auth;
+	auth << userName << password;
+	s.send(auth);
 
-		s.receive(auth);
-		auth >> aut;
+	s.receive(auth);
+	auth >> aut;
 
-		if (aut == "authenticated") {
-			// Nombre del archivo
+	if (aut == "authenticated") {
+		// Nombre del archivo
+		while(true) {
 			int opcion = 0;
 			while(not(opcion >= 1 && opcion <= 5)) {
 				cout << "OPCIONES:" << endl;
@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
 			// Casos de uso
 
 			// Descargar archivo:
-			if (opcion == 2) { //((string)argv[2] == "down") {
+			if (opcion == 2) {
 				cout << "\n\t DESCARGAR ARCHIVOS" << endl;
 				cout << "Digite el nombre del archivo (con su extension): ";
 				cin >> fileName;
@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
 				cout << "[SERVER]: Operacion terminada ..." << endl;
 
 			}
-			else if (opcion == 1) {//((string)argv[2] == "up") {
+			else if (opcion == 1) {
 				cout << "\n\t SUBIR ARCHIVOS" << endl;
 				cout << "Digite el nombre del archivo (con su extension): ";
 				cin >> fileName;
@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
 					cout << "[SERVER]: Archivo subido: " << ack << endl;
 				}
 			}
-			else if (opcion == 3) {//((string)argv[2] == "rm") {
+			else if (opcion == 3) {
 				cout << "\n\t ELIMINAR ARCHIVOS" << endl;
 				cout << "Digite el nombre del archivo (con su extension): ";
 				cin >> fileName;
@@ -159,15 +159,8 @@ int main(int argc, char** argv) {
 				message fin;
 				fin << "finish" << "";
 				s.send(fin);
-				finish = true;
+				break;
 			}
-		}
-		else if (aut == "password-err") {
-			cout << "[SERVER]: Contraseña ingresada es incorrecta!" << endl;
-			finish = true;
-		}
-		else if (aut == "bad-authenticated") {
-			cout << "[SERVER]: Usuario NO existe, se procede a crearlo! " << endl;
 		}
 	}
 

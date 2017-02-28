@@ -6,3 +6,5 @@ server
 *.mp4
 *.iso
 *.dat
+*.bin
+*.gch
