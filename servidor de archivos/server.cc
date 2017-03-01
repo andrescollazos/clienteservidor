@@ -144,6 +144,7 @@ int main() {
 				s.send("Incorrecto");
 			}
 			else {
+				useri.pop(fileName);
 				cout << "[SERVER]: Borrado Correctamente" << endl;
 				s.send("Correctamente");
 			}

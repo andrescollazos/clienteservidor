@@ -27,8 +27,13 @@ class user : public ISerializable {
     user(string userName, string password) : userName_(userName), password_(password) {}
     ~user() {}
 
+    // Metodos para serializar (write) y deserializar (read)
     virtual void read (std::istream& in);
     virtual void write(std::ostream& out);
+
+    // Metodos
+    virtual void pop(string archive);
+
 };
 
 void user::read(std::istream& in) {
@@ -99,6 +104,17 @@ void user::write(std::ostream& out) {
   }
 
   //out.write((char*) &a_, sizeof(double)); // Escribir un double
+}
+
+// Metodo que permite eliminar un elemento del vector archives_
+void user::pop(string archive) {
+  for (int i = 0; i < (int)archives_.size(); i++) {
+    cout << "Iter " << i << ": Elemento: " << archives_[i] << " == " << archive << endl;
+    if (archive == archives_[i]) {
+      cout << "Eliminando... " << endl;
+      archives_.erase(archives_.begin()+i, archives_.begin()+(i+1));
+    }
+  }
 }
 /*
 int main(int argc, char *argv[]) {
