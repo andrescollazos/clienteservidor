@@ -2,10 +2,11 @@
 #include <string>
 #include <fstream>
 #include <zmqpp/zmqpp.hpp>
-#include "user.h"
+#include "json.hpp"
 
 using namespace std;
 using namespace zmqpp;
+using json = nlohmann::json;
 
 // Funcion que permite leer los bytes de un archivo y retornarlos en un vector
 vector<char> readFileToBytes(const string& fileName) {
@@ -58,40 +59,15 @@ int main() {
 	// filename: nombre del archivo.
 	message m;
 	string fileName, op;
-	string username, password;
+	string username; //, password;
+	json dates;
 
-	// Proceso de autenticacion:
-	s.receive(m);
-	user useri; // Contiene la informacion de un usuario i
-	bool exists = false;
-	m >> username >> password;
 
-	// El servidor recibe la conexion de un usuario con nombre y contrasena
-	// En caso de que el servidor no encuentre el archivo del usuario, lo creara
-	string archive_name = "." + username + ".dat";
-	ifstream if_user(archive_name, ios::in | ios::binary);
-	if(if_user.good()) {
-		cout << "[SERVER]: Cargando Datos de Usuario: " << endl;
-		useri.read(if_user);
-		exists = true;
-	}
-	// En caso de que el usuario no exista, se crea un objeto
-	if(!exists) {
-		cout << "[SERVER]: Usuario no existia, se crea ..." << endl;
-		useri.userName_ = username;
-		useri.password_ = password;
-	}
-	ofstream of_user;
-	of_user.open(archive_name, ios::out | ios::binary);
-	if (!of_user.is_open()) {
-		cout << "[SERVER]: Error al abrir el archivo!" << endl;
-		return -1;
-	}
-	s.send("authenticated");
-	cout << "[SERVER]: Usuario autenticado-- Puede iniciar peticiones " << endl;
 	while(true) {
+		system("clear");
+
 		s.receive(m);
-		m >> op >> fileName;
+		m >> username >> op >> fileName;
 
 		// Saber que operacion va a realizar el usuario
 
@@ -99,21 +75,23 @@ int main() {
 		if (op == "down") {
 			cout << "[SERVER]: Solicitud de Descarga: " << fileName << endl;
 			// Comprar que existe el archivo y que es del usuario:
-			ifstream proof(useri.userName_ + "-" + fileName, ios::binary);
+			ifstream proof(username + "-" + fileName, ios::binary);
 			if (proof.good()) {
 				cout << "Archivo si existe!" << endl;
 				proof.close();
 				message response;
-				fileToMesage(useri.userName_ + "-" + fileName, response);
+				fileToMesage(username + "-" + fileName, response);
 				cout << "[SERVER]: Enviando archivo ..." << endl;
 				s.send("ok"); // Informa que empieza la descarga
 				s.receive(m);
 				s.send(response);
 				cout << "[SERVER]: Descarga Realizada" << endl;
+				//s.receive(m);
 			}
 			else {
 				cout << "[SERVER]: El archivo solicitado NO se encuentra" << endl;
 				s.send("bad"); // Informa que la descarga no sera realizada
+				//s.receive(m);
 			}
 		}
 		// Subir archivo
@@ -127,16 +105,19 @@ int main() {
 			s.receive(file);
 			cout << "[SERVER]: Solicitud de subida: " << fileName << endl;
 
-			string upName(useri.userName_ + "-" + fileName);
+			string upName(username + "-" + fileName);
 			messageToFile(file, upName);
-			useri.archives_.push_back(fileName);
-			useri.write(of_user);
+			dates[username].push_back(upName);
 			cout << "[SERVER]: Subida Realizada" << endl;
 			s.send("correctamente"); // Se subio el archivo correctamente
+
+			for (json::iterator it = dates.begin(); it != dates.end(); ++it) {
+        cout << it.key() << " : " << it.value() << "\n";
+      }
 		}
 		else if (op == "rm") {
 			cout << "[SERVER]: Solicitud de Borrado" << endl;
-			string remov = useri.userName_ + "-" + fileName;
+			string remov = username + "-" + fileName;
 			// La funcion remove() recibe const char, no string
 			const char * rem = remov.c_str(); // Conversion string -> const char
 			if (remove(rem)!= 0) {
@@ -144,25 +125,18 @@ int main() {
 				s.send("Incorrecto");
 			}
 			else {
-				useri.pop(fileName);
+				//useri.pop(fileName);
 				cout << "[SERVER]: Borrado Correctamente" << endl;
 				s.send("Correctamente");
 			}
 		}
 		else if (op == "list") {
 			cout << "[SERVER]: Solicitud de Listado" << endl;
-			string list_ = "";
-			for (int i = 0; i < (int)useri.archives_.size(); i++) {
-				list_ += "\t* " + useri.archives_[i] + "\n";
-				cout << "Iter" << i << ": string: " << list_;
-			}
-			s.send(list_);
-		}
-		else if (op == "finish") {
-			cout << "[SERVER]: Terminar!" << endl;
-			useri.write(of_user);
-			of_user.close();
-			break;
+			//string list_ = "";
+			json lst;
+			lst["lista"] = dates[username];
+			string mtext = lst.dump(); // Serializar
+			s.send(mtext);
 		}
 	}
 
