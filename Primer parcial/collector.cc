@@ -30,7 +30,12 @@ int measure_prec () {
   return rand()%200;
 }
 
-int main() {
+int main(int argc, char** argv) {
+  if (argc != 2) {
+		cerr << "Error: " << argv[0] << " debe especificar nombre del PC\n";
+		return 1;
+	}
+
   context ctx;
   socket s(ctx, socket_type::req);
   s.connect("tcp://localhost:5555");
@@ -60,6 +65,7 @@ int main() {
 
     // 1. Estructurar informacion en JSON
     json j;
+    j["Computer"] = argv[1];
     j["temperature"] = temperature;
     j["humidity"] = humidity;
     j["precipitation"] = precipitation;

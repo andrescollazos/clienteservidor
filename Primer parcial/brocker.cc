@@ -39,8 +39,13 @@ int main() {
 
     // 2. Separar datos
     json te, hu, pr;
+    te["Computer"] = j["Computer"];
     te["temperature"] = j["temperature"];
+
+    hu["Computer"] = j["Computer"];
     hu["humidity"] = j["humidity"];
+
+    pr["Computer"] = j["Computer"];
     pr["precipitation"] = j["precipitation"];
 
     // Enviar mensaje divido a los Servidores
