@@ -6,10 +6,10 @@ all: server brocker collector
 server: server.cc
 	$(CC) -o server server.cc $(LDFLAGS)
 
-brocker: collector.cc
+collector: collector.cc
 	$(CC) -o collector collector.cc $(LDFLAGS)
 
-collector: brocker.cc
+brocker: brocker.cc
 		$(CC) -o brocker brocker.cc $(LDFLAGS)
 
 clean:
