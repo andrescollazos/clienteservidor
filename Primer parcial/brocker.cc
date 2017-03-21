@@ -28,6 +28,8 @@ int main() {
     string mtext;
     request >> mtext;
     json j = json::parse(mtext);
+    system("clear");
+    cout << "Recibiendo datos de Computador: " << j["Computer"] << endl;
     /*
     cout << "Temperature: " << j["temperature"] << endl;
     cout << "Humidity: " << j["humidity"] << endl;
@@ -39,13 +41,13 @@ int main() {
 
     // 2. Separar datos
     json te, hu, pr;
-    te["Computer"] = j["Computer"];
+    te["hour"] = j["hour"];
     te["temperature"] = j["temperature"];
 
-    hu["Computer"] = j["Computer"];
+    hu["hour"] = j["hour"];
     hu["humidity"] = j["humidity"];
 
-    pr["Computer"] = j["Computer"];
+    pr["hour"] = j["hour"];
     pr["precipitation"] = j["precipitation"];
 
     // Enviar mensaje divido a los Servidores

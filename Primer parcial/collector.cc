@@ -56,6 +56,9 @@ int main(int argc, char** argv) {
     precipitation = measure_prec(); // Medir precipitacion
 
     system("clear");
+    time_t now = time(0);
+    string dt = ctime(&now);
+    cout << "Hora de medida: " << dt << endl;
     cout << "Midiendo Temperatura: " << temperature << "°C" << endl;
     cout << "Midiendo Humedad: " << humidity << "%" << endl;
     cout << "Midiendo Precipitación: " << precipitation << " mm" << endl;
@@ -66,6 +69,7 @@ int main(int argc, char** argv) {
     // 1. Estructurar informacion en JSON
     json j;
     j["Computer"] = argv[1];
+    j["hour"] = dt;
     j["temperature"] = temperature;
     j["humidity"] = humidity;
     j["precipitation"] = precipitation;
