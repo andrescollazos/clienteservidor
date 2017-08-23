@@ -41,9 +41,16 @@ def main():
                 # Las operaciones tienen dos argumentos: operacion y cancion
                 operacion = input("\nOperacion? ")
                 operacion = operacion.split(" ")
-                # Verificar que tenga dos argumentos, ya que la operacion lista solo tiene 1
-                if len(operacion) > 1:
+                try:
                     cancion = operacion[1]
+                except:
+                    pass
+                try:
+                    # Porcentaje de la cancion que escuchara el usuario
+                    porcentaje = int(operacion[2])
+                except:
+                    # A no ser de que lo especifique, solicitara la cancion al 100%
+                    porcentaje = 100
                 operacion = operacion[0]
                 #print ("Operacion [{}, {}]".format(operacion, cancion))
 
@@ -55,7 +62,7 @@ def main():
                         print("\t{0}.{1}".format(i + 1, c))
                 elif operacion == "reproducir":
                     TRACKS = [] # Reproducir elimina lista de reproducir
-                    s.send_json({"operacion": "reproducir", "cancion":cancion})
+                    s.send_json({"operacion": "reproducir", "cancion":cancion, "porcentaje":porcentaje})
                     musicaOgg = s.recv()
                     # Crear archivo
                     with open(cancion, "wb") as archivoOgg:
@@ -67,7 +74,7 @@ def main():
                         pygame.mixer.music.play()
 
                 elif operacion == "adicionar" and len(TRACKS) > 0:
-                    s.send_json({"operacion": "reproducir", "cancion":cancion})
+                    s.send_json({"operacion": "reproducir", "cancion":cancion, "porcentaje":porcentaje})
                     musicaOgg = s.recv()
 
                     with open(cancion, "wb") as archivoOgg:

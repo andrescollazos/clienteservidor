@@ -26,16 +26,16 @@ def main():
         msg = s.recv_json()
         #print(s.get_monitor_socket())
         if msg["operacion"] == "lista":
+            print("[RECIBIDO]: Solicitud de listar canciones")
             s.send_json({"canciones": list(files.keys())})
-        elif msg["operacion"] == "descarga":
-            fileName = musicFolder + msg["cancion"]
-            with open(fileName,"rb") as input:
-                data = input.read()
-                s.send(data)
         elif msg["operacion"] == "reproducir":
+            print("[RECIBIDO]: Solicitud de reproducir cancion al ", msg["porcentaje"], "%")
             fileName = musicFolder + msg["cancion"]
             with open(fileName,"rb") as input:
                 data = input.read()
+                tam = len(data)
+                input.seek(0)
+                data = input.read(int(tam*(msg["porcentaje"]/100)))
                 s.send(data)
 if __name__ == '__main__':
     main()
