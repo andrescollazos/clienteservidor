@@ -8,7 +8,6 @@ def main():
     TRACK_END = pygame.USEREVENT+1
     TRACKS = []#"1.ogg","3.ogg"] #Three sound effects I have
     track = 0
-    init = True
     # Create the socket and the context
     context = zmq.Context()
     s = context.socket(zmq.REQ)
@@ -21,7 +20,7 @@ def main():
     pygame.display.set_mode((500,500))
     pygame.mixer.music.set_endevent(TRACK_END)
 
-    n_cancion = 1
+    parte = 0
     while True:
         for event in pygame.event.get():
             # En caso de cerrar la ventana, se termina el programa
@@ -61,26 +60,48 @@ def main():
                     for i, c  in enumerate(respuesta["canciones"]):
                         print("\t{0}.{1}".format(i + 1, c))
                 elif operacion == "reproducir":
-                    TRACKS = [] # Reproducir elimina lista de reproducir
-                    s.send_json({"operacion": "reproducir", "cancion":cancion, "porcentaje":porcentaje})
-                    musicaOgg = s.recv()
-                    # Crear archivo
-                    with open(cancion, "wb") as archivoOgg:
-                        archivoOgg.write(musicaOgg)
-                        TRACKS.append(cancion) # Agregar a la lista de canciones
-                        # Cargar cancion
-                        pygame.mixer.music.load(TRACKS[0])
-                        # Reproducir
-                        pygame.mixer.music.play()
+                    cancion_recibida = False
+                    TRACKS = []
+                    while not cancion_recibida:
+                        #print("[PETICION ENVIADA]: [descarga,{0},{1},{2}]".format(cancion, porcentaje, parte))
+                        s.send_json({"operacion": "descarga",
+                                     "cancion": cancion,
+                                     "porcentaje": porcentaje,
+                                     "parte": parte
+                                    })
+                        musicaOgg = s.recv()
+                        try:
+                            if musicaOgg.decode() == "FINISH":
+                                cancion_recibida = True
+                                parte = 0
+                        except:
+                            with open(cancion, "ab") as archivoOgg:
+                                archivoOgg.write(musicaOgg)
+                                parte += 1
+                                #print("Partes recibidas: ", parte)
+                    
+                    TRACKS.append(cancion)
+                    pygame.mixer.music.load(TRACKS[0])
+                    pygame.mixer.music.play()
 
-                elif operacion == "adicionar" and len(TRACKS) > 0:
-                    s.send_json({"operacion": "reproducir", "cancion":cancion, "porcentaje":porcentaje})
-                    musicaOgg = s.recv()
-
-                    with open(cancion, "wb") as archivoOgg:
-                        archivoOgg.write(musicaOgg)
-                        TRACKS.append(cancion)
-
+                elif operacion == "adicionar":
+                    cancion_recibida = False
+                    while not cancion_recibida:
+                        s.send_json({"operacion": "descarga",
+                                     "cancion": cancion,
+                                     "porcentaje": porcentaje,
+                                     "parte": parte
+                                    })
+                        musicaOgg = s.recv()
+                        try:
+                            if musicaOgg.decode() == "FINISH":
+                                cancion_recibida = True
+                                parte = 0
+                        except:
+                            with open(cancion, "ab") as archivoOgg:
+                                archivoOgg.write(musicaOgg)
+                                parte += 1
+                    TRACKS.append(cancion)
                 else:
                     print("No esta implementando")
 
