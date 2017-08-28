@@ -79,13 +79,15 @@ def main():
                                 archivoOgg.write(musicaOgg)
                                 parte += 1
                                 #print("Partes recibidas: ", parte)
-                    
+
                     TRACKS.append(cancion)
                     pygame.mixer.music.load(TRACKS[0])
                     pygame.mixer.music.play()
 
                 elif operacion == "adicionar":
                     cancion_recibida = False
+                    cambiar_nombre = True
+                    cancion_g = cancion
                     while not cancion_recibida:
                         s.send_json({"operacion": "descarga",
                                      "cancion": cancion,
@@ -98,7 +100,10 @@ def main():
                                 cancion_recibida = True
                                 parte = 0
                         except:
-                            with open(cancion, "ab") as archivoOgg:
+                            if cancion in TRACKS and cambiar_nombre:
+                                cancion_g = "n-" + cancion
+                                cambiar_nombre = False
+                            with open(cancion_g, "ab") as archivoOgg:
                                 archivoOgg.write(musicaOgg)
                                 parte += 1
                     TRACKS.append(cancion)
