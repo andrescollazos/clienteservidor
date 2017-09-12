@@ -11,21 +11,12 @@ def loadFiles(path):
         files[filename] = file
     return files
 
-def dividir_archivo(fileName, tam, p = 100):
+def get_part(fileName, tam, p):
     with open(fileName, "rb") as input:
-        data = input.read()
-        t = len(data) # TAMANO TOTAL DEL ARCHIVO
-        # Calcular nuevo tamano a partir del porcentaje
-        tamt = int(t*(p/100))
-        tamp = int(tamt*1.0/tam)
-        tamr = tamt - tam*tamp
-        input.seek(0)
-        PARTS = []
-        for i in range(tamp):
-            PARTS.append(input.read(tam))
-        PARTS.append(input.read(tamr))
-    #print("Archivo divido en {} partes".format(len(PARTS)))
-    return PARTS
+        input.seek(p * tam)
+        data = input.read(tam)
+
+    return data
 
 def main():
     musicFolder = sys.argv[1]
@@ -46,29 +37,22 @@ def main():
         if msg["operacion"] == "lista":
             print("[RECIBIDO]: Solicitud de listar canciones")
             s.send_json({"canciones": list(files.keys())})
-        elif msg["operacion"] == "reproducir":
-            print("[RECIBIDO]: Solicitud de reproducir cancion al ", msg["porcentaje"], "%")
-            fileName = musicFolder + msg["cancion"]
-            with open(fileName,"rb") as input:
-                data = input.read()
-                tam = len(data) # TAMANO TOTAL DEL ARCHIVO
-                # Calcular nuevo tamano a partir del porcentaje
-                tam = int(tam*(msg["porcentaje"]/100))
-                input.seek(0)
-                data = input.read(tam)
-
-                # ENVIO DE PARTES
-                s.send(data)
 
         elif msg["operacion"] == "descarga":
-            print("[RECIBIDO]: Solicitud de descarga, parte ", msg["parte"])
             fileName = musicFolder + msg["cancion"]
-
-            PARTS = dividir_archivo(fileName, TAM_MIN, msg["porcentaje"])
-            if not(msg["parte"] == len(PARTS)):
-                s.send(PARTS[msg["parte"]])
+            if msg["parte"] == "-1":
+                tam = os.path.getsize(fileName)
+                tam = int(tam*(msg["porcentaje"]/100))
+                cantidad_partes = int(tam/TAM_MIN)
+                if not cantidad_partes*TAM_MIN ==  tam:
+                    cantidad_partes += 1
+                print("CANTIDAD DE PARTES A ENVIAR DE {0} B: {1}".format(TAM_MIN, cantidad_partes))
+                s.send_json({"cantidad_partes": cantidad_partes})
             else:
-                s.send(bytes("FINISH", 'utf-8'))
+                print("[RECIBIDO]: Solicitud de descarga, parte ", msg["parte"])
+
+                part = get_part(fileName, TAM_MIN, int(msg["parte"]))
+                s.send(part)
 
 if __name__ == '__main__':
     main()

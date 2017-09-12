@@ -59,10 +59,19 @@ def main():
                     print("Canciones disponibles")
                     for i, c  in enumerate(respuesta["canciones"]):
                         print("\t{0}.{1}".format(i + 1, c))
-                elif operacion == "reproducir":
-                    cancion_recibida = False
-                    TRACKS = []
-                    while not cancion_recibida:
+                elif operacion == "reproducir" or operacion == "adicionar":
+                    #cancion_recibida = False
+                    if operacion == "reproducir":
+                        TRACKS = []
+                    s.send_json({"operacion": "descarga",
+                                 "cancion": cancion,
+                                 "porcentaje": porcentaje,
+                                 "parte": "-1",
+                                })
+                    datos = s.recv_json()
+                    cantidad_partes = int(datos["cantidad_partes"])
+
+                    while not parte == cantidad_partes:
                         #print("[PETICION ENVIADA]: [descarga,{0},{1},{2}]".format(cancion, porcentaje, parte))
                         s.send_json({"operacion": "descarga",
                                      "cancion": cancion,
@@ -70,46 +79,17 @@ def main():
                                      "parte": parte
                                     })
                         musicaOgg = s.recv()
-                        try:
-                            if musicaOgg.decode() == "FINISH":
-                                cancion_recibida = True
-                                parte = 0
-                        except:
-                            with open(cancion, "ab") as archivoOgg:
-                                archivoOgg.write(musicaOgg)
-                                parte += 1
-                                #print("Partes recibidas: ", parte)
-
+                        with open(cancion, "ab") as archivoOgg:
+                            archivoOgg.write(musicaOgg)
+                            parte += 1
+                            print("Partes recibidas: ", parte)
+                    parte = 0
                     TRACKS.append(cancion)
-                    pygame.mixer.music.load(TRACKS[0])
-                    pygame.mixer.music.play()
-
-                elif operacion == "adicionar":
-                    cancion_recibida = False
-                    cambiar_nombre = True
-                    cancion_g = cancion
-                    while not cancion_recibida:
-                        s.send_json({"operacion": "descarga",
-                                     "cancion": cancion,
-                                     "porcentaje": porcentaje,
-                                     "parte": parte
-                                    })
-                        musicaOgg = s.recv()
-                        try:
-                            if musicaOgg.decode() == "FINISH":
-                                cancion_recibida = True
-                                parte = 0
-                        except:
-                            if cancion in TRACKS and cambiar_nombre:
-                                cancion_g = "n-" + cancion
-                                cambiar_nombre = False
-                            with open(cancion_g, "ab") as archivoOgg:
-                                archivoOgg.write(musicaOgg)
-                                parte += 1
-                    TRACKS.append(cancion)
+                    if operacion == "reproducir":
+                        pygame.mixer.music.load(TRACKS[0])
+                        pygame.mixer.music.play()
                 else:
                     print("No esta implementando")
-
 
 if __name__ == '__main__':
     main()
