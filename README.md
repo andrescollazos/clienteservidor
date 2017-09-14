@@ -1,13 +1,12 @@
 # ARQUITECTURA CLIENTE / SERVIDOR
 
-### Ingeniería de Sistemas y Computación - UTP
-
 ## Dependencias:
 * C++
+* Python
 
-### Retos:
+### Contenido:
 
-1. Hacer un servidor aritmetico (Sumar, restar, etc)
-2. Servidor de archivos
-3. Reproductor de Musica
-4. Redes Peer-to-Peer (P2P)
+1. Servidor aritmetico (Sumar, restar, etc) / C++
+2. Estación meteorológica
+3. Servidor de Musica
+4. RedTorrent // BitTorrent
