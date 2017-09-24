@@ -9,3 +9,7 @@ server
 *.bin
 *.gch
 *.ogg
+*.exe
+*.torrent
+*.part
+*.json
