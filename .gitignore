@@ -13,3 +13,6 @@ server
 *.torrent
 *.part
 *.json
+*.txt
+*.zip
+*.rar

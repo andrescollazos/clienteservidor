@@ -115,8 +115,8 @@ def main():
             print("Digite la clave del archivo que desea descargar: ")
             key = input()
 
-            raw_data = {'tipe': "download", 'file': key}
-            print("Enviando json... ")
+            raw_data = {'tipe': "download", 'file': key + ".json"}
+            
             s.send_json(raw_data)
 
             response = s.recv_json()
@@ -133,7 +133,7 @@ def main():
 
             with open("down-" + response["file_name"], 'wb') as f:
                 r_parts = response["parts"]
-                for i, part in enumerate(r_parts):                    
+                for i, part in enumerate(r_parts):
                     sp = SERVERS[r_parts[part]]
 
                     #byte_content = f.read(PART_SIZE)
