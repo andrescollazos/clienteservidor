@@ -9,11 +9,20 @@ def loadFiles(path):
     dataDir = os.fsencode(path)
     for file in os.listdir(dataDir):
         filename = os.fsdecode(file)
-        print("Loading {}".format(filename))
+        #print("Loading {}".format(filename))
         files[filename] = file
     return files
 
 def main():
+    try:
+        folder = sys.argv[1]
+    except:
+        print("[Tracker]: ¡Error! Debe especificar un directorio (tracker_archives/)")
+        return -1
+
+    print("Serving files from {}".format(folder))
+    files = loadFiles(folder)
+    print("Load info on {} files.".format(len(files)))
 
     context = zmq.Context()
     s_port = "tcp://*:5555"
@@ -37,9 +46,11 @@ def main():
                 for i, part in enumerate(archive_parts):
                     PARTS.update({part : servers[i%len(servers)]})
 
-                data = {"file":archive_name, "parts": PARTS, "servers": servers}
+                data = {"file":archive_name, "parts": PARTS, "servers": servers, "file_name": msg["file_name"]}
                 json_data = json.dumps(data, indent=2)
-                with open(archive_name+".json", 'w') as output:
+                file_name = folder + archive_name+".json"
+
+                with open(file_name, 'w') as output:
                     output.write(json_data)
 
                 s.send_json(data)
@@ -52,6 +63,14 @@ def main():
             servers.append(msg["dir"])
             s.send_json({"rsp": "ACK"})
             print("[TRACKER]: Servidores disponibles: ", len(servers))
+        elif msg['tipe'] == "download":
+            fkey = msg["file"]
+            if fkey in files:
+                with open(folder+fkey, "r") as input_j:
+                    json_data = json.load(input_j)
+                    s.send_json(json_data)
+
+        files = loadFiles(folder)
 
     #print("bloqueante")
 

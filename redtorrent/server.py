@@ -17,11 +17,14 @@ def loadFiles(path):
 
 
 def main():
-    folder = sys.argv[2]
-    print("Serving files from {}".format(folder))
-    files = loadFiles(folder)
-    print("Load info on {} files.".format(len(files)))
-
+    try:
+        folder = sys.argv[2]
+        print("Serving files from {}".format(folder))
+        files = loadFiles(folder)
+        print("Load info on {} files.".format(len(files)))
+    except:
+        print("[Server]: ¡Error! No se encontro directorio, cree uno (serverN/)")
+        return -1
     # Create the socket and the context
     context = zmq.Context()
     c = context.socket(zmq.REQ)
@@ -48,6 +51,17 @@ def main():
                     output.write(fbytes)
 
                 s.send_json("ACK")
+            elif msg['tipe'] == "download":
+                filename = folder + "/" + msg["filename"] + ".part"
+                with open(filename, 'rb') as f:
+                    byte_content = f.read()
+                    print("[Server]: Enviando parte, size: ", len(byte_content))
+                    base64_bytes = base64.b64encode(byte_content)
+                    base64_string = base64_bytes.decode('utf-8')
+
+                    raw_data = {'file': base64_string, 'filename': msg["filename"]}
+                    s.send_json(raw_data)
+
     else:
         print("NO FUE POSIBLE CONECTAR CON TRACKER")
 
