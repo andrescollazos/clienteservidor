@@ -44,7 +44,7 @@ def main():
 
     # Create the socket and the context
     node = Node(IP)
-    print("ID: ", node.id)
+    print("ID: ", node.id[:4], "...")
     context = zmq.Context()
     #c = context.socket(zmq.REQ)
     #c.connect("tcp://localhost:5555") # Direccion del tracker
@@ -64,7 +64,6 @@ def main():
         c.connect(node_dir)
 
         c_msg = {"tipe": "join", "id": node.id, "dir": node.ip}
-        #print("Enviare mensaje tipo JOIN")
         c.send_json(c_msg)
 
         resp = c.recv_json()
@@ -80,7 +79,10 @@ def main():
 
     while True:
         print("ESPERANDO MENSAJES")
-        print("Sig = ", node.sig, "Ant = ", node.ant)
+        try:
+            print("Sig = ", node.sig_id[:4], "...", "Ant = ", node.ant_id[:4], "...")
+        except:
+            print("No hay mas nodo conectados!")
         msg = s.recv_json()
 
         # Mensaje tipo join, indica que un nodo se quiere conectar
@@ -107,24 +109,31 @@ def main():
                 node.sig = msg["dir"]
                 node.sig_id = msg["id"]
                 s.send_json(raw_send)
-            # Quiere decir que es el primero del anillo
-            elif node.ant_id > node.id:
-                # Verificar si el nodo que desea ingresar el mayor al ultimo
-                if msg["id"] > node.ant_id:
-                    # Avisar al predecesor que su nuevo sucesor es el nodo que intenta entrar
-                    n = context.socket(zmq.REQ)
-                    n.connect(node.ant)
+            elif node.ant_id > node.id and msg["id"] > node.ant_id: # Verificar si el nodo que desea ingresar el mayor al ultimo
+                # Avisar al predecesor que su nuevo sucesor es el nodo que intenta entrar
+                n = context.socket(zmq.REQ)
+                n.connect(node.ant)
 
-                    n_msg = {"tipe": "c_sig", "id": msg["id"], "dir": msg["dir"]}
-                    n.send_json(n_msg)
-                    resp = n.recv_json()
-                    #c.close()
+                n_msg = {"tipe": "c_sig", "id": msg["id"], "dir": msg["dir"]}
+                n.send_json(n_msg)
+                resp = n.recv_json()
+                #c.close()
 
-                    # Enviar al nodo que desear conectarse la informacion necesaria
-                    raw_send = {"sig": node.ip, 'ant':node.ant, 'sig_id': node.id, 'ant_id': node.ant_id}
-                    node.ant = msg["dir"]
-                    node.ant_id = msg["id"]
-                    s.send_json(raw_send)
+                # Enviar al nodo que desear conectarse la informacion necesaria
+                raw_send = {"sig": node.ip, 'ant':node.ant, 'sig_id': node.id, 'ant_id': node.ant_id}
+                node.ant = msg["dir"]
+                node.ant_id = msg["id"]
+                s.send_json(raw_send)
+            else:
+                # Preguntar al sucesor si le corresponde atender al nodo entrante:
+                n = context.socket(zmq.REQ)
+                n.connect(node.sig)
+                n_msg = {"tipe": "join", "id": msg["id"], "dir": msg["dir"]}
+                n.send_json(n_msg)
+                resp = n.recv_json()
+
+                raw_send = {"sig": resp["sig"], "ant": resp["ant"], "sig_id": resp["sig_id"], "ant_id": resp["ant_id"]}
+                s.send_json(raw_send)
 
             #elif msg["id"] > node.id and msg["id"] < node.sig_id:
             #else:
