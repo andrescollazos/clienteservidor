@@ -44,6 +44,7 @@ def main():
 
     # Create the socket and the context
     node = Node(IP)
+    print("ID: ", node.id)
     context = zmq.Context()
     #c = context.socket(zmq.REQ)
     #c.connect("tcp://localhost:5555") # Direccion del tracker
@@ -63,8 +64,7 @@ def main():
         c.connect(node_dir)
 
         c_msg = {"tipe": "join", "id": node.id, "dir": node.ip}
-        print("Enviare mensaje tipo JOIN")
-        print("ID: ", node.id)
+        #print("Enviare mensaje tipo JOIN")
         c.send_json(c_msg)
 
         resp = c.recv_json()
@@ -94,6 +94,19 @@ def main():
                 raw_send = {'sig': node.ip, 'ant': node.ip, 'sig_id': node.id, 'ant_id': node.id}
 
                 s.send_json(raw_send)
+            elif msg["id"] > node.id and msg["id"] < node.sig_id:
+                # Avisar al siguiente que su nuevo predecesor es nodo que intenta entrar
+                n = context.socket(zmq.REQ)
+                n.connect(node.sig)
+
+                n_msg = {'tipe': "c_ant", "id": msg["id"], "dir": msg["dir"]}
+                n.send_json(n_msg)
+                resp = n.recv_json()
+
+                raw_send = {"sig": node.sig, "ant": node.ip, "sig_id": node.sig_id, "ant_id": node.id}
+                node.sig = msg["dir"]
+                node.sig_id = msg["id"]
+                s.send_json(raw_send)
             # Quiere decir que es el primero del anillo
             elif node.ant_id > node.id:
                 # Verificar si el nodo que desea ingresar el mayor al ultimo
@@ -114,12 +127,17 @@ def main():
                     s.send_json(raw_send)
 
             #elif msg["id"] > node.id and msg["id"] < node.sig_id:
-            else:
-                pass
+            #else:
+            #    pass
 
         elif msg['tipe'] == "c_sig":
             node.sig = msg["dir"]
             node.sig_id = msg["id"]
+            s.send_json("OK")
+
+        elif msg['tipe'] == 'c_ant':
+            node.ant = msg["dir"]
+            node.ant_id = msg["id"]
             s.send_json("OK")
 
         elif msg['tipe'] == "up":
