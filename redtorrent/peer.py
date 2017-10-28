@@ -1,4 +1,3 @@
-
 import zmq
 import sys
 import hashlib
@@ -26,7 +25,7 @@ def sha256_parts(filename, part_size):
 def main():
     context = zmq.Context()
 
-    # Tamaño fijo de las partes 1MB
+    # Tamaño fijo de las partes 5MB
     PART_SIZE = 1000000
     salir = False
 
@@ -34,7 +33,9 @@ def main():
     #filename = sys.argv[1].split(".")[0]
     s = context.socket(zmq.REQ)
     # Conectarse con el tracker
-    s.connect("tcp://localhost:5555")
+    serv = "tcp://localhost:" + sys.argv[1]
+    print("Intentando conectarse a: ", serv)
+    s.connect(serv)
     while not salir:
 
         print("Menu: ")
@@ -57,66 +58,69 @@ def main():
 
             # Usar funcion para calcular el token para cada parte
             parts = sha256_parts(filename, PART_SIZE)
-            raw_data = {'tipe': "upload", 'file': name, 'parts':parts, 'file_name': filename}
+            raw_data = {'tipe': 'up', 'tipe_file': "index", 'filename': name, 'parts':parts, 'name': filename}
             s.send_json(raw_data)
 
             response = s.recv_json()
 
-            # Servidores disponibles para enviar el archivo
-            servers = response["servers"]
-            SERVERS = {}
-            print("Servidores disponibles: ", servers)
-            for i, server in enumerate(servers):
-                # Crear un socket
-                se = context.socket(zmq.REQ)
-                se.connect(server)
-                # Diccionario para relacionar la dirección del socket con el socket
-                SERVERS.update({server: se})
+            if response["resp"] == "ack":
+                with open(filename, 'rb') as f:
+                    for i, part in enumerate(parts):
+                        # Preparar mensaje
+                        byte_content = f.read(PART_SIZE)
+                        print("[Cliente]: Compartiendo la parte {0}, size: {1}".format(i, len(byte_content)))
+                        base64_bytes = base64.b64encode(byte_content)
+                        base64_string = base64_bytes.decode('utf-8')
+                        send = {'tipe': 'up-a', 'tipe_file': 'part', 'file': base64_string, 'filename': part}
 
-            # ENVIAR ARCHIVOS A LOS SERVIDORES:
-            parts = response["parts"]
-            print("[CLIENTE]: Compartiendo archivo")
-            with open(filename, 'rb') as f:
-                for i, part in enumerate(parts):
+                        # Enviar mensaje manifestando intencion de envio de parte
+                        raw_send = {'tipe': 'up', 'tipe_file': 'part', 'filename': part}
+                        s.send_json(raw_send)
+                        resp = s.recv_json()
 
-                    so = SERVERS[parts[part]]
+                        # Si la respuesta es afirmativa:
+                        if resp["resp"] == "ok":
+                            # Si el servidor destino es el mismo que me atiende inicialmente:
+                            if resp["dir"] == serv:
+                                s.send_json(send)
+                                r = s.recv_json()
+                            else:
+                                # Crear el socket respectivo para el server dispuesto a recibir
+                                so = context.socket(zmq.REQ)
+                                so.connect(resp["dir"])
+                                so.send_json(send)
+                                r = so.recv_json()
 
-                    byte_content = f.read(PART_SIZE)
-                    print("[Cliente]: Compartiendo la parte {0}, size: {1}".format(i, len(byte_content)))
-                    base64_bytes = base64.b64encode(byte_content)
-                    base64_string = base64_bytes.decode('utf-8')
+                            if not r == "ACK":
+                                print ("[Cliente]: Sucedio un problema enviando la parte", i)
+                                break
+                        else:
+                            print("[Server]: No se puede recibir la parte")
+                            break
 
-                    raw_data = {'tipe':"up", 'part': i, 'file': base64_string, 'filename':part}
-                    so.send_json(raw_data)
-                    resp = so.recv_json()
+                print("[Cliente]: Partes enviadas correctamente")
+                print("[COMPARTIR ARCHIVO]:")
+                print("\tPara compartir el archivo que acabo de subir, guarde esta clave y compartala con quien desee: ")
+                print("\tCLAVE: ", name)
 
-                    if not resp == "ACK":
-                        print("[Cliente]: Sucedio un problema enviando la parte ", i)
-                        break
-            print("[Cliente]: Partes enviadas correctamente")
-            print("[COMPARTIR ARCHIVO]:")
-            print("\tPara compartir el archivo que acabo de subir, guarde esta clave y compartala con quien desee: ")
-            print("\tCLAVE: ", response["file"])
+                print("¿Desea guardarla en un archivo .txt?")
+                save = input("(Y/N)? ")
 
-            print("¿Desea guardarla en un archivo .txt?")
-            save = input("(Y/N)? ")
-
-            if save == "y" or save == "Y":
-                file_name_s = "share-" + filename + ".txt"
-                with open(file_name_s, "w") as fsave:
-                    fsave.write("KEY: " + response["file"])
-                    print("Archivo creado correctamente, nombre: ", file_name_s)
-            #with open(filename+".json", 'w') as output:
-            #    json_data = json.dumps(response, indent=2)
-            #    output.write(json_data)
-            #print("[Cliente]: Torrent creado correctamente")
+                if save == "y" or save == "Y":
+                    file_name_s = "share-" + filename + ".txt"
+                    with open(file_name_s, "w") as fsave:
+                        fsave.write("KEY: " + name)
+                        print("Archivo creado correctamente, nombre: ", file_name_s)
+            else:
+                print("[SERVER]: No se pudo recibir el archivo Index!")
+                break
 
         elif opcion == 2:
             print("Digite la clave del archivo que desea descargar: ")
             key = input()
 
             raw_data = {'tipe': "download", 'file': key + ".json"}
-            
+
             s.send_json(raw_data)
 
             response = s.recv_json()

@@ -85,6 +85,7 @@ def main():
             print("No hay mas nodo conectados!")
         msg = s.recv_json()
 
+        print("MENSAJE RECIBIDO: \n\t", "Tipo: ", msg['tipe'])
         # Mensaje tipo join, indica que un nodo se quiere conectar
         if msg['tipe'] == "join":
             # En caso de que no se tenga ninguna conexion:
@@ -149,17 +150,57 @@ def main():
             node.ant_id = msg["id"]
             s.send_json("OK")
 
-        elif msg['tipe'] == "up":
-            filename = folder + "/" + msg["filename"] + ".part"
+        elif msg['tipe'] == 'up':
+            # Verificar si me corresponde atender al cliente
+            correspond = False
+            # Verificar si es el primer nodo: ( Ni < Nanti) Ni -> Nodo Actual, Nanti -> Nodo predecesor del actual
+            if (node.id < node.ant_id) and (msg['filename'] > node.ant_id or msg['filename'] < node.id):
+                correspond = True
+            elif msg['filename'] > node.ant_id and msg['filename'] < node.id:
+                correspond = True
+            else:
+                correspond = False
+
+            if correspond:
+                #print("Me corresponde a mi: ")
+                if msg['tipe_file'] == "index":
+                    data = {"file": msg['filename'], "parts": msg['parts'], "name": msg["name"]}
+                    json_data = json.dumps(data, indent=2)
+                    file_name = folder + '/' + msg['filename']+".json"
+
+                    with open(file_name, 'w') as output:
+                        output.write(json_data)
+
+                    raw_send = {'resp': "ack", 'tipe_a': 'index', 'dir': IP}
+                    s.send_json(raw_send)
+                else:
+                    raw_send = {'resp': 'ok', 'tipe_a': 'part', 'dir': IP}
+                    s.send_json(raw_send)
+            else:
+                #print("No me corresponde a mi: ")
+
+                su = context.socket(zmq.REQ)
+                su.connect(node.sig)
+                if msg["tipe_file"] == "index":
+                    send = {'tipe': 'up', 'tipe_file': "index", 'filename': msg['filename'], 'parts': msg['parts'], 'name': msg['name']}
+                elif msg["tipe_file"] == 'part':
+                    send = {'tipe': 'up', 'tipe_file': 'part', 'filename': msg['filename']}
+                su.send_json(send)
+                resp = su.recv_json()
+
+                raw_send = {'resp': resp["resp"], 'tipe_a': resp["tipe_a"], 'dir': resp["dir"]}
+                s.send_json(raw_send)
+
+        elif msg['tipe'] == 'up-a':
+            filename = folder + "/" + msg['filename'] + ".part"
 
             with open(filename, "wb") as output:
-                print("[Server]: Recibiendo parte ", msg["filename"])
+                print("[Server]: Recibiendo parte") #, msg["filename"])
                 fstring = msg['file']
                 fbytes = base64.b64decode(fstring)
-
                 output.write(fbytes)
-
             s.send_json("ACK")
+
         elif msg['tipe'] == "download":
             filename = folder + "/" + msg["filename"] + ".part"
             with open(filename, 'rb') as f:
