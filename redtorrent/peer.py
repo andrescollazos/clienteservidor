@@ -119,45 +119,41 @@ def main():
             print("Digite la clave del archivo que desea descargar: ")
             key = input()
 
-            raw_data = {'tipe': "download", 'file': key + ".json"}
-
+            raw_data = {'tipe': "download", 'tipe_file': 'index', 'filename': key}
             s.send_json(raw_data)
 
             response = s.recv_json()
 
-            servers = response["servers"]
-            SERVERS = {}
-            print("Servidores disponibles: ", servers)
-            for i, server in enumerate(servers):
-                # Crear un socket
-                se = context.socket(zmq.REQ)
-                se.connect(server)
-                # Diccionario para relacionar la dirección del socket con el socket
-                SERVERS.update({server: se})
-
-            with open("down-" + response["file_name"], 'wb') as f:
+            with open("down-" + response["name"], 'wb') as f:
                 r_parts = response["parts"]
                 for i, part in enumerate(r_parts):
-                    sp = SERVERS[r_parts[part]]
-
-                    #byte_content = f.read(PART_SIZE)
                     print("[Cliente]: Descargando la parte ", i)
-                    #base64_bytes = base64.b64encode(byte_content)
-                    #base64_string = base64_bytes.decode('utf-8')
 
-                    raw_data = {'tipe':"download", 'filename':part}
-                    sp.send_json(raw_data)
+                    # Enviar mensaje manifestando intencion de descargar parte:
+                    raw_data = {'tipe': 'download', 'tipe_file': 'part', 'filename':part}
+                    s.send_json(raw_data)
 
-                    resp = sp.recv_json()
+                    resp = s.recv_json()
 
-                    print("[Server]: Recibiendo parte ", resp["filename"])
-                    fstring = resp['file']
-                    fbytes = base64.b64decode(fstring)
+                    if resp['resp-d'] == 'ok':
+                        if resp['dir'] == serv:
+                            s.send_json({'tipe': 'down-a', 'filename': part})
+                            r = s.recv_json()
+                        else:
+                            # Crear el socket respectivo para el server dispuesto a recibir
+                            so = context.socket(zmq.REQ)
+                            so.connect(resp['dir'])
+                            so.send_json({'tipe': 'down-a', 'filename': part})
+                            r = so.recv_json()
 
-                    f.write(fbytes)
-            #with open("response.json", 'w') as output:
-            #    json_data = json.dumps(response, indent=2)
-            #    output.write(json_data)
+                        print("[Server]: Recibiendo parte ", r["filename"])
+                        fstring = r['file']
+                        fbytes = base64.b64decode(fstring)
+
+                        f.write(fbytes)
+                    else:
+                        print("OCURRIO UN PROBLEMA, NO SE PUEDE RECIBIR PARTE")
+                        break
 
         elif opcion == 3:
             salir = True

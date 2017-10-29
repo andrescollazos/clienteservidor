@@ -30,6 +30,16 @@ class Node():
         self.ant = -1
         self.ant_id = -1
 
+    # Metodo para saber si corresponde o no al nodo atender al cliente
+    def corresponds(self, msg):
+        # Verificar si es el primer nodo: ( Ni < Nanti) Ni -> Nodo Actual, Nanti -> Nodo predecesor del actual
+        if (self.id < self.ant_id) and (msg['filename'] > self.ant_id or msg['filename'] < self.id):
+            return True
+        elif msg['filename'] > self.ant_id and msg['filename'] < self.id:
+            return True
+        else:
+            return False
+
 
 def main():
     try:
@@ -85,7 +95,15 @@ def main():
             print("No hay mas nodo conectados!")
         msg = s.recv_json()
 
-        print("MENSAJE RECIBIDO: \n\t", "Tipo: ", msg['tipe'])
+        print("---------------------------")
+        print("ID: ", node.id[:4], "...")
+        try:
+            print("MENSAJE RECIBIDO: \n\t", "Tipo: ", msg['tipe'], 'tipe_file', msg['tipe_file'], ' filename:', msg['filename'])
+        except:
+            print("MENSAJE RECIBIDO: \n\t", "Tipo: ", msg['tipe'])
+        print("HT: ")
+        for i, key in enumerate(node.ht):
+            print(i, ":", node.ht[key].split("/")[1][:5], "...")
         # Mensaje tipo join, indica que un nodo se quiere conectar
         if msg['tipe'] == "join":
             # En caso de que no se tenga ninguna conexion:
@@ -152,14 +170,7 @@ def main():
 
         elif msg['tipe'] == 'up':
             # Verificar si me corresponde atender al cliente
-            correspond = False
-            # Verificar si es el primer nodo: ( Ni < Nanti) Ni -> Nodo Actual, Nanti -> Nodo predecesor del actual
-            if (node.id < node.ant_id) and (msg['filename'] > node.ant_id or msg['filename'] < node.id):
-                correspond = True
-            elif msg['filename'] > node.ant_id and msg['filename'] < node.id:
-                correspond = True
-            else:
-                correspond = False
+            correspond = node.corresponds(msg)
 
             if correspond:
                 #print("Me corresponde a mi: ")
@@ -170,6 +181,7 @@ def main():
 
                     with open(file_name, 'w') as output:
                         output.write(json_data)
+                        node.ht.update({msg["filename"]: file_name})
 
                     raw_send = {'resp': "ack", 'tipe_a': 'index', 'dir': IP}
                     s.send_json(raw_send)
@@ -199,9 +211,40 @@ def main():
                 fstring = msg['file']
                 fbytes = base64.b64decode(fstring)
                 output.write(fbytes)
+
+                # Almacenar dato el HT:
+                node.ht.update({msg["filename"]: filename})
             s.send_json("ACK")
 
         elif msg['tipe'] == "download":
+            # Verificar si me corresponde atender al cliente
+            correspond = False
+
+            print(node.ht)
+            print("Lo tengo?", msg['filename'] in node.ht)
+            if msg['filename'] in node.ht:
+                if msg['tipe_file'] == 'index':
+                    with open(folder + "/" + msg['filename'] + ".json", "r") as input_j:
+                        json_data = json.load(input_j)
+                        s.send_json(json_data)
+                else:
+                    raw_send = {'resp-d': 'ok', 'dir': IP}
+                    s.send_json(raw_send)
+            else:
+                # Si no corresponde al nodo antenderlo pregunta al sucesor
+                su = context.socket(zmq.REQ)
+                su.connect(node.sig)
+                if msg["tipe_file"] == "index":
+                    send = {'tipe': 'download', 'tipe_file': 'index', 'filename': msg['filename']}
+                elif msg["tipe_file"] == 'part':
+                    send = {'tipe': 'download', 'tipe_file': 'part', 'filename': msg['filename']}
+                su.send_json(send)
+                resp = su.recv_json()
+
+                #raw_send = {'resp-d': resp["resp"], 'dir': resp["dir"]}
+                s.send_json(resp)
+
+        elif msg['tipe'] == 'down-a':
             filename = folder + "/" + msg["filename"] + ".part"
             with open(filename, 'rb') as f:
                 byte_content = f.read()
