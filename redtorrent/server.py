@@ -4,18 +4,10 @@ import zmq
 import json
 import base64
 import hashlib
+import time
 
 MY_DIR = "tcp://*:" + sys.argv[1]
 IP = "tcp://localhost:"+ sys.argv[1]
-
-def loadFiles(path):
-    files = {}
-    dataDir = os.fsencode(path)
-    for file in os.listdir(dataDir):
-        filename = os.fsdecode(file)
-        print("Loading {}".format(filename))
-        files[filename] = file
-    return files
 
 class Node():
     def __init__(self, ip):
@@ -29,6 +21,27 @@ class Node():
         self.sig_id = -1
         self.ant = -1
         self.ant_id = -1
+        self.sharing = False
+
+    def star_connection(self, context, ip):
+        node_dir = ip #"tcp://localhost:" + sys.argv[3]
+        print("Estableciendo conexion a: ", ip)
+        c = context.socket(zmq.REQ)
+        c.connect(node_dir)
+        c_msg = {"tipe": "join", "id": self.id, "dir": self.ip}
+        c.send_json(c_msg)
+
+        resp = c.recv_json()
+
+        if ('sig' in resp) and ('ant' in resp):
+            self.sig = resp["sig"]
+            self.sig_id = resp["sig_id"]
+            self.ant = resp["ant"]
+            self.ant_id = resp["ant_id"]
+        elif resp == "occupied":
+            print("NO SE PUEDE ESTABLECER CONEXION, REITENTANDO EN 1 seg...")
+            time.sleep(1)
+            self.star_connection(context, ip)
 
     # Metodo para saber si corresponde o no al nodo atender al cliente
     def corresponds(self, msg):
@@ -40,29 +53,34 @@ class Node():
         else:
             return False
 
+    def loadFiles(self, path):
+        files = {}
+        dataDir = os.fsencode(path)
+        for file in os.listdir(dataDir):
+            filename = os.fsdecode(file)
+            print("Loading {}".format(filename))
+            self.ht.update({filename.split(".")[0]: path + "/" + filename})
+        #print("HT: ", self.ht, "\n\n")
+
+    # Metodo para enviar un mensaje a todos los nodos avisando de algun evento especial
+    # Para que los demás nodo no reciban conexiones tipo join
+    def broadcast(self, context, init, msg):
+        n = context.socket(zmq.REQ)
+        n.connect(self.sig)
+
+        n_msg = {'tipe': "broadcast", "init": init, "msg": msg}
+        n.send_json(n_msg)
+        r = n.recv_json()
 
 def main():
-    try:
-        folder = sys.argv[2]
-        print("Serving files from {}".format(folder))
-        files = loadFiles(folder)
-        print("Load info on {} files.".format(len(files)))
-    except:
-        pass
-        #print("[Server]: ¡Error! No se encontro directorio, cree uno (serverN/)")
-        #return -1
-
     # Create the socket and the context
     node = Node(IP)
     print("ID: ", node.id[:4], "...")
-    context = zmq.Context()
-    #c = context.socket(zmq.REQ)
-    #c.connect("tcp://localhost:5555") # Direccion del tracker
-    #tracker_msg = {"tipe": "server", "dir": "tcp://localhost:" + sys.argv[1]}
-    #c.send_json(tracker_msg)
-    #resp = c.recv_json()
 
-    #if resp["rsp"] == "ACK":
+    folder = sys.argv[2]
+    node.loadFiles(folder)
+
+    context = zmq.Context()
     s = context.socket(zmq.REP)
     s.bind(MY_DIR)
 
@@ -70,18 +88,7 @@ def main():
     # es el primer nodo
     try:
         node_dir = "tcp://localhost:" + sys.argv[3]
-        c = context.socket(zmq.REQ)
-        c.connect(node_dir)
-
-        c_msg = {"tipe": "join", "id": node.id, "dir": node.ip}
-        c.send_json(c_msg)
-
-        resp = c.recv_json()
-
-        node.sig = resp["sig"]
-        node.sig_id = resp["sig_id"]
-        node.ant = resp["ant"]
-        node.ant_id = resp["ant_id"]
+        node.star_connection(context, node_dir)
 
     except:
         print("[¡PRIMER SERVIDOR EN CONECTARSE!]")
@@ -97,10 +104,7 @@ def main():
 
         print("---------------------------")
         print("ID: ", node.id[:4], "...")
-        try:
-            print("MENSAJE RECIBIDO: \n\t", "Tipo: ", msg['tipe'], 'tipe_file', msg['tipe_file'], ' filename:', msg['filename'])
-        except:
-            print("MENSAJE RECIBIDO: \n\t", "Tipo: ", msg['tipe'])
+        print("MENSAJE RECIBIDO: \n\t", "Tipo: ", msg['tipe'])
         print("HT: ")
         for i, key in enumerate(node.ht):
             print(i, ":", node.ht[key].split("/")[1][:5], "...")
@@ -115,44 +119,48 @@ def main():
                 raw_send = {'sig': node.ip, 'ant': node.ip, 'sig_id': node.id, 'ant_id': node.id}
 
                 s.send_json(raw_send)
-            elif msg["id"] > node.id and msg["id"] < node.sig_id:
-                # Avisar al siguiente que su nuevo predecesor es nodo que intenta entrar
-                n = context.socket(zmq.REQ)
-                n.connect(node.sig)
+            elif not node.sharing:
+                if msg["id"] > node.id and msg["id"] < node.sig_id:
+                    # Avisar al siguiente que su nuevo predecesor es nodo que intenta entrar
+                    n = context.socket(zmq.REQ)
+                    n.connect(node.sig)
 
-                n_msg = {'tipe': "c_ant", "id": msg["id"], "dir": msg["dir"]}
-                n.send_json(n_msg)
-                resp = n.recv_json()
+                    n_msg = {'tipe': "c_ant", "id": msg["id"], "dir": msg["dir"]}
+                    n.send_json(n_msg)
+                    resp = n.recv_json()
 
-                raw_send = {"sig": node.sig, "ant": node.ip, "sig_id": node.sig_id, "ant_id": node.id}
-                node.sig = msg["dir"]
-                node.sig_id = msg["id"]
-                s.send_json(raw_send)
-            elif node.ant_id > node.id and msg["id"] > node.ant_id: # Verificar si el nodo que desea ingresar el mayor al ultimo
-                # Avisar al predecesor que su nuevo sucesor es el nodo que intenta entrar
-                n = context.socket(zmq.REQ)
-                n.connect(node.ant)
+                    raw_send = {"sig": node.sig, "ant": node.ip, "sig_id": node.sig_id, "ant_id": node.id}
+                    node.sig = msg["dir"]
+                    node.sig_id = msg["id"]
+                    s.send_json(raw_send)
+                elif node.ant_id > node.id and msg["id"] > node.ant_id: # Verificar si el nodo que desea ingresar el mayor al ultimo
+                    # Avisar al predecesor que su nuevo sucesor es el nodo que intenta entrar
+                    n = context.socket(zmq.REQ)
+                    n.connect(node.ant)
 
-                n_msg = {"tipe": "c_sig", "id": msg["id"], "dir": msg["dir"]}
-                n.send_json(n_msg)
-                resp = n.recv_json()
-                #c.close()
+                    n_msg = {"tipe": "c_sig", "id": msg["id"], "dir": msg["dir"]}
+                    n.send_json(n_msg)
+                    resp = n.recv_json()
+                    #c.close()
 
-                # Enviar al nodo que desear conectarse la informacion necesaria
-                raw_send = {"sig": node.ip, 'ant':node.ant, 'sig_id': node.id, 'ant_id': node.ant_id}
-                node.ant = msg["dir"]
-                node.ant_id = msg["id"]
-                s.send_json(raw_send)
+                    # Enviar al nodo que desear conectarse la informacion necesaria
+                    raw_send = {"sig": node.ip, 'ant':node.ant, 'sig_id': node.id, 'ant_id': node.ant_id}
+                    node.ant = msg["dir"]
+                    node.ant_id = msg["id"]
+                    s.send_json(raw_send)
+                else:
+                    # Preguntar al sucesor si le corresponde atender al nodo entrante:
+                    n = context.socket(zmq.REQ)
+                    n.connect(node.sig)
+                    n_msg = {"tipe": "join", "id": msg["id"], "dir": msg["dir"]}
+                    n.send_json(n_msg)
+                    resp = n.recv_json()
+
+                    raw_send = {"sig": resp["sig"], "ant": resp["ant"], "sig_id": resp["sig_id"], "ant_id": resp["ant_id"]}
+                    s.send_json(raw_send)
             else:
-                # Preguntar al sucesor si le corresponde atender al nodo entrante:
-                n = context.socket(zmq.REQ)
-                n.connect(node.sig)
-                n_msg = {"tipe": "join", "id": msg["id"], "dir": msg["dir"]}
-                n.send_json(n_msg)
-                resp = n.recv_json()
-
-                raw_send = {"sig": resp["sig"], "ant": resp["ant"], "sig_id": resp["sig_id"], "ant_id": resp["ant_id"]}
-                s.send_json(raw_send)
+                print("No puedo recibir conexiones, estoy recibiendo archivos")
+                s.send_json("occupied")
 
             #elif msg["id"] > node.id and msg["id"] < node.sig_id:
             #else:
@@ -170,6 +178,12 @@ def main():
 
         elif msg['tipe'] == 'up':
             # Verificar si me corresponde atender al cliente
+            if 'n_part' in msg:
+                if msg['n_part'] == 'init':
+                    #print("EMPIEZA A COMPARTIR PARTES")
+                    node.sharing = True
+                    node.broadcast(context, node.id, "share-init")
+
             correspond = node.corresponds(msg)
 
             if correspond:
@@ -215,8 +229,19 @@ def main():
                 # Almacenar dato el HT:
                 node.ht.update({msg["filename"]: filename})
             s.send_json("ACK")
+            if 'n_part' in msg:
+                if msg['n_part'] == 'finish':
+                    print("YA RECIBI TODAS LAS PARTES")
+                    node.sharing = False
+                    node.broadcast(context, node.id, 'share-finish')
 
         elif msg['tipe'] == "download":
+
+            if 'n_part' in msg:
+                if msg['n_part'] == 'init':
+                    #print("EMPIEZA A COMPARTIR PARTES")
+                    node.sharing = True
+                    node.broadcast(context, node.id, "share-init")
             # Verificar si me corresponde atender al cliente
             correspond = False
 
@@ -224,7 +249,7 @@ def main():
             print("Lo tengo?", msg['filename'] in node.ht)
             if msg['filename'] in node.ht:
                 if msg['tipe_file'] == 'index':
-                    with open(folder + "/" + msg['filename'] + ".json", "r") as input_j:
+                    with open(node.ht[msg['filename']], "r") as input_j:
                         json_data = json.load(input_j)
                         s.send_json(json_data)
                 else:
@@ -245,8 +270,7 @@ def main():
                 s.send_json(resp)
 
         elif msg['tipe'] == 'down-a':
-            filename = folder + "/" + msg["filename"] + ".part"
-            with open(filename, 'rb') as f:
+            with open(node.ht[msg['filename']], 'rb') as f:
                 byte_content = f.read()
                 print("[Server]: Enviando parte, size: ", len(byte_content))
                 base64_bytes = base64.b64encode(byte_content)
@@ -254,7 +278,24 @@ def main():
 
                 raw_data = {'file': base64_string, 'filename': msg["filename"]}
                 s.send_json(raw_data)
+                if 'n_part' in msg:
+                    if msg['n_part'] == 'finish':
+                        #print("YA RECIBI TODAS LAS PARTES")
+                        node.sharing = False
+                        node.broadcast(context, node.id, 'share-finish')
 
+        elif msg['tipe'] == 'broadcast':
+            if not(msg['init'] == node.id):
+                if msg['msg'] == 'share-init':
+                    node.sharing = True
+                    s.send_json("Ok")
+                    node.broadcast(context, msg['init'], msg['msg'])
+                elif msg['msg'] == 'share-finish':
+                    node.sharing = False
+                    s.send_json("Ok")
+                    node.broadcast(context, msg['init'], msg['msg'])
+            else:
+                s.send_json("Ok")
     #else:
     #    print("NO FUE POSIBLE CONECTAR CON TRACKER")
 

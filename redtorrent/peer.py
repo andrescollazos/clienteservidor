@@ -58,13 +58,14 @@ def main():
 
             # Usar funcion para calcular el token para cada parte
             parts = sha256_parts(filename, PART_SIZE)
-            raw_data = {'tipe': 'up', 'tipe_file': "index", 'filename': name, 'parts':parts, 'name': filename}
+            raw_data = {'tipe': 'up', 'tipe_file': "index", 'filename': name, 'parts':parts, 'name': filename, 'n_part': 'init'}
             s.send_json(raw_data)
 
             response = s.recv_json()
 
             if response["resp"] == "ack":
                 with open(filename, 'rb') as f:
+                    tam = len(parts)
                     for i, part in enumerate(parts):
                         # Preparar mensaje
                         byte_content = f.read(PART_SIZE)
@@ -72,6 +73,8 @@ def main():
                         base64_bytes = base64.b64encode(byte_content)
                         base64_string = base64_bytes.decode('utf-8')
                         send = {'tipe': 'up-a', 'tipe_file': 'part', 'file': base64_string, 'filename': part}
+                        if i + 1 == tam:
+                            send.update({'n_part': 'finish'})
 
                         # Enviar mensaje manifestando intencion de envio de parte
                         raw_send = {'tipe': 'up', 'tipe_file': 'part', 'filename': part}
@@ -119,13 +122,14 @@ def main():
             print("Digite la clave del archivo que desea descargar: ")
             key = input()
 
-            raw_data = {'tipe': "download", 'tipe_file': 'index', 'filename': key}
+            raw_data = {'tipe': "download", 'tipe_file': 'index', 'filename': key, 'n_part': 'init'}
             s.send_json(raw_data)
 
             response = s.recv_json()
 
             with open("down-" + response["name"], 'wb') as f:
                 r_parts = response["parts"]
+                tam = len(r_parts)
                 for i, part in enumerate(r_parts):
                     print("[Cliente]: Descargando la parte ", i)
 
@@ -134,16 +138,19 @@ def main():
                     s.send_json(raw_data)
 
                     resp = s.recv_json()
+                    down_send = {'tipe': 'down-a', 'filename': part}
+                    if i + 1 == tam:
+                        down_send.update({'n_part': 'finish'})
 
                     if resp['resp-d'] == 'ok':
                         if resp['dir'] == serv:
-                            s.send_json({'tipe': 'down-a', 'filename': part})
+                            s.send_json(down_send)
                             r = s.recv_json()
                         else:
                             # Crear el socket respectivo para el server dispuesto a recibir
                             so = context.socket(zmq.REQ)
                             so.connect(resp['dir'])
-                            so.send_json({'tipe': 'down-a', 'filename': part})
+                            so.send_json(down_send)
                             r = so.recv_json()
 
                         print("[Server]: Recibiendo parte ", r["filename"])
