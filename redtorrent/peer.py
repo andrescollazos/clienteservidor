@@ -5,6 +5,7 @@ import os
 import math
 import json
 import base64
+import time
 
 # Funcionque permite obtener un token unico para cada parte de un archivo
 def sha256_parts(filename, part_size):
@@ -21,6 +22,19 @@ def sha256_parts(filename, part_size):
             sha256.update(part)
             PARTS.append(sha256.hexdigest())
     return PARTS
+
+# Funcion para enviar un mensaje, si el servidor esta ocupado, espera un segundo
+# y reenvia el mensaje hasta recibir la respuesta esperada.
+def send_msg(socket, msg):
+    socket.send_json(msg)
+
+    resp = socket.recv_json()
+
+    if resp == "occupied":
+        time.sleep(1)
+        send_msg(socket, msg)
+    else:
+        return resp
 
 def main():
     context = zmq.Context()
