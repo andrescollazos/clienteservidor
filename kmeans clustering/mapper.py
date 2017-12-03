@@ -10,11 +10,11 @@ import json
 MY_DIR = "tcp://*:" + sys.argv[1]
 PORT = sys.argv[1]
 
-DATASETS = ["DS_1Clusters_100Points.txt",
-            "DS_3Clusters_999Points.txt",
-            "DS2_3Clusters_999Points.txt",
-            "DS_5Clusters_10000Points.txt",
-            "DS_7Clusters_100000Points.txt"
+DATASETS = ["datasets/DS_1Clusters_100Points.txt",
+            "datasets/DS_3Clusters_999Points.txt",
+            "datasets/DS2_3Clusters_999Points.txt",
+            "datasets/DS_5Clusters_10000Points.txt",
+            "datasets/DS_7Clusters_100000Points.txt"
             ]
 
 class Point():
@@ -90,44 +90,87 @@ def main():
             with open(dataset, "rt") as a_dataset:
                 a = list(a_dataset)
                 for i, dat in enumerate(data):
-                    print("-----------------------")
-                    print("Dat: ", dat)
+                    #print("-----------------------")
+                    #print("Dat: ", dat)
                     centroid = int(dat[0])
                     cont = pdm*int(dat[2])
                     lim = cont + int(dat[1])
                     hsh = dat[0] + "-" + dat[2] + "-" + dat[1]
                     dist = []
                     while cont < lim:
-                        print("Cont: {0} lim: {1}".format(cont, lim))
+                        #print("Cont: {0} lim: {1}".format(cont, lim))
                         point = a[cont].split("::")
                         point = (ast.literal_eval(point[0]), ast.literal_eval(point[1]))
                         #print("i: {0} C: {1} P: {2}".format(i, centroid, point))
                         d = distance.euclidean(point, centroids[centroid])
                         dist.append(d)
-                        print("P: {0} C: {1} D: {2}".format(point, centroid, d))
+                        #print("P: {0} C: {1} D: {2}".format(point, centroid, d))
                         cont += 1
                     distances.update({hsh: dist})
 
             # Enviar distancias a los reducers
             pdr = int(msg["pdr"])
-            reducers = int(msg["reducers"])
-            raw_reduce = {}
+            ip_reducers = msg["reducers"]
+            reducers = []
+            for i, r in enumerate(ip_reducers):
+                rs = context.socket(zmq.REQ)
+                rs.connect(r)
+                reducers.append(rs)
+
 
             json_data = json.dumps(distances, indent=2)
-            with open(PORT + "n.json", 'w') as output:
+            with open(PORT + ".json", 'w') as output:
                 output.write(json_data)
 
-            # Ordenar distancias
-            #for j in range(num_clusters):
-            #    for d in distances:
-            #        inf = d.split("-")
-            #        if int(inf[0]) == j:
-            #            raw_reduce.update({d: distances[d]})
+            hasant = 0
+            for d in distances:
+                red_msg = {}
+                raw_d = []
+                sec = d.split("-")[1]
+                hashd = d.split("-")[0]
+                if not(hasant == hashd):
+                    secr = 0
+                hasant = hashd
+                #print("CALCULOS DE CENTROIDE: ", hashd)
 
-            json_data = json.dumps(raw_reduce, indent=2)
-            with open(PORT + "a.json", 'w') as output:
-                output.write(json_data)
+                for i, di in enumerate(distances[d]):
+                    #print(inf[1], " -> C: ", i+int(inf[1])*pdm, " pdr: ", pdr)
+                    if not (i+int(sec)*pdm) < pdr + pdr*secr:
+                        #print("*Enviar msg a reducer: ", str(secr), " Seccion: ", hashd, " Cantidad: ",str(pdr))
+                        secr += 1
+                        raw_d = []
+                    raw_d.append(di)
+                    red_msg.update({hashd+"-"+str(secr)+"-"+str(pdr): raw_d})
+                    #print(cont, ". ", hashd,"-",str(secr),"-",str(pdr), " d:", di)
+                    cont += 1
 
+                for key in (red_msg):
+                    ky = key.split("-")
+                    i_reducer = int(ky[1])
+                    centroid = ky[0]
+                    size = int(ky[2])
+
+                    if not(i_reducer >= len(reducers)):
+                        n_save = key
+                        save = {"type": "dist", "ip": ip_reducers[i_reducer], "centroid": centroid, "size": size, key: red_msg[key]}
+                        sck = reducers[i_reducer]
+                        #json_data = json.dumps(save, indent=2)
+                        #ap = 'a'
+                    else:
+                        a_key = centroid + "-" + str(i_reducer - 1) + "-" + str(size)
+                        n_save = a_key
+                        n_size = size + len(red_msg[key])
+                        n_key = centroid + "-" + str(i_reducer - 1) + "-" + str(n_size)
+                        dates = red_msg[a_key] + red_msg[key]
+                        #ap = 'w'
+                        save = {"type": "dist", "ip": ip_reducers[i_reducer - 1], "centroid": centroid, "size": n_size, n_key: dates}
+                        sck = reducers[i_reducer - 1]
+                        #json_data = json.dumps(save, indent=2)
+                    sck.send_json(save)
+                    ans = sck.recv_json()
+                    print(ans)
+                    #with open(n_save + ".json", ap) as output:
+                    #    output.write(json_data)
 
 
         if msg["type"] == "end":

@@ -8,11 +8,11 @@ import sys
 import zmq
 import math
 
-DATASETS = ["DS_1Clusters_100Points.txt",
-            "DS_3Clusters_999Points.txt",
-            "DS2_3Clusters_999Points.txt",
-            "DS_5Clusters_10000Points.txt",
-            "DS_7Clusters_100000Points.txt"
+DATASETS = ["datasets/DS_1Clusters_100Points.txt",
+            "datasets/DS_3Clusters_999Points.txt",
+            "datasets/DS2_3Clusters_999Points.txt",
+            "datasets/DS_5Clusters_10000Points.txt",
+            "datasets/DS_7Clusters_100000Points.txt"
             ]
 ITERATIONS = 1000
 
@@ -73,6 +73,7 @@ def main():
 
     # Conectarse a los reducers, para eso se hace uso de un archivo de texto.
     reducers = []
+    ip_reducers = []
     try:
         with open(sys.argv[4], "rt") as reds:
             # Conectarse a reducers:
@@ -83,6 +84,7 @@ def main():
             for i, r in enumerate(reds):
                 rs = context.socket(zmq.REQ)
                 rs.connect(r)
+                ip_reducers.append(r)
                 reducers.append(rs)
     except:
         print("Ocurrio un error conectandose a los reducers")
@@ -164,7 +166,7 @@ def main():
                                   "centroids": str_centroids,
                                   "pdm": pdm,
                                   "pdr": pdr,
-                                  "reducers": len(reducers)}
+                                  "reducers": ip_reducers}
                                 )
             r = mappers[i].recv_json()
             if not r == "OK":
