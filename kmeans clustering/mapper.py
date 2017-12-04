@@ -64,7 +64,7 @@ def main():
 
         if msg["type"] == "map":
             # Recibir conexion inicial: mapear
-            print("Recibí conexion: ", msg['pr_dataset'])
+            #print("Recibí conexion: ", msg['pr_dataset'])
             s.send_json("OK")
 
             # El mensaje que se recibe esta estructurado de la siguiente manera:
@@ -118,9 +118,9 @@ def main():
                 reducers.append(rs)
 
 
-            json_data = json.dumps(distances, indent=2)
-            with open(PORT + ".json", 'w') as output:
-                output.write(json_data)
+            #json_data = json.dumps(distances, indent=2)
+            #with open(PORT + ".json", 'w') as output:
+            #    output.write(json_data)
 
             hasant = 0
             for d in distances:
@@ -152,10 +152,12 @@ def main():
 
                     if not(i_reducer >= len(reducers)):
                         n_save = key
-                        save = {"type": "dist", "ip": ip_reducers[i_reducer], "centroid": centroid, "size": size, key: red_msg[key]}
+                        save = {"type": "dist", "dates": red_msg[key],
+                                "key": key,"save": key, "ap": 'a',
+                                "mappers": msg["mappers"],
+                                "clusters": msg["clusters"],
+                                "pdr": pdr}
                         sck = reducers[i_reducer]
-                        #json_data = json.dumps(save, indent=2)
-                        #ap = 'a'
                     else:
                         a_key = centroid + "-" + str(i_reducer - 1) + "-" + str(size)
                         n_save = a_key
@@ -163,15 +165,20 @@ def main():
                         n_key = centroid + "-" + str(i_reducer - 1) + "-" + str(n_size)
                         dates = red_msg[a_key] + red_msg[key]
                         #ap = 'w'
-                        save = {"type": "dist", "ip": ip_reducers[i_reducer - 1], "centroid": centroid, "size": n_size, n_key: dates}
+                        save = {"type": "dist", "dates": dates,
+                                "key": n_key, "save": a_key, "ap": 'w',
+                                "mappers": msg["mappers"],
+                                "clusters": msg["clusters"],
+                                "pdr": pdr}
                         sck = reducers[i_reducer - 1]
                         #json_data = json.dumps(save, indent=2)
                     sck.send_json(save)
-                    ans = sck.recv_json()
-                    print(ans)
-                    #with open(n_save + ".json", ap) as output:
-                    #    output.write(json_data)
+                    print("Response: ", sck.recv_json())
 
+            # Enviar a los reducers el mensaje diciendo que termino de enviar datos.
+            for rs in reducers:
+                rs.send_json({"type": "end-data"})
+                print("Response: ", rs.recv_json())
 
         if msg["type"] == "end":
             print("Finalizar conexión")

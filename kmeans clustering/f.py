@@ -166,7 +166,8 @@ def main():
                                   "centroids": str_centroids,
                                   "pdm": pdm,
                                   "pdr": pdr,
-                                  "reducers": ip_reducers}
+                                  "reducers": ip_reducers,
+                                  "mappers": len(mappers)}
                                 )
             r = mappers[i].recv_json()
             if not r == "OK":
